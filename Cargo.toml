@@ -1,0 +1,16 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/client",
+    "crates/common",
+    "crates/protocol",
+    "crates/server",
+]
+exclude = [
+    "**/tests",
+]
+
+[workspace.package]
+edition = "2024"
+license = "MIT"
+version = "0.1.0"
