@@ -14,3 +14,8 @@ exclude = [
 edition = "2024"
 license = "MIT"
 version = "0.1.0"
+
+[workspace.dependencies]
+tokio = { version = "1", features = ["full"] }
+bytes = "1"
+thiserror = "2"
