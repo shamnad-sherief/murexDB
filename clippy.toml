@@ -1,0 +1,7 @@
+# MurexDB Clippy Configuration
+
+# Set thresholds for complexity and functions
+cognitive-complexity-threshold = 25
+too-many-arguments-threshold = 8
+array-size-threshold = 512
+msrv = "1.85.0"

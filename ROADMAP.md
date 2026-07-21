@@ -29,7 +29,7 @@ The database engine is built first. AI-specific capabilities are introduced only
 
 # Phase 1 — Database Engine
 
-## Milestone 0 — Foundation *(Current)*
+## Milestone 0 — Foundation *(Completed)*
 
 ### Goal
 
@@ -44,16 +44,17 @@ Establish the project foundation and engineering workflow.
 * [x] `.gitignore`
 * [x] RFC Process
 * [x] RFC-0002 — Network Protocol
-* [ ] RFC-0003 — Project Architecture
-* [ ] GitHub Actions
-* [ ] Code Quality Configuration (`rustfmt`, Clippy)
-* [ ] CHANGELOG
-* [ ] CONTRIBUTING
-* [ ] Initial Release (`v0.0.1`)
+* [x] RFC-0003 — Project Architecture
+* [x] RFC-0004 — Concurrency Model
+* [x] GitHub Actions
+* [x] Code Quality Configuration (`rustfmt`, Clippy)
+* [x] CHANGELOG
+* [x] CONTRIBUTING
+* [x] Initial Release (`v0.0.1`)
 
 ---
 
-## Milestone 1 — In-Memory Database
+## Milestone 1 — In-Memory Database *(Current)*
 
 ### Goal
 
