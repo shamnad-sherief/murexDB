@@ -1,4 +1,74 @@
+use bytes::{Buf, BufMut};
 use murex_common::{Key, Value};
+
+// OpCodes for commands
+pub const OP_PING: u8 = 0x01;
+pub const OP_GET: u8 = 0x02;
+pub const OP_SET: u8 = 0x03;
+pub const OP_DELETE: u8 = 0x04;
+pub const OP_HELP: u8 = 0x05;
+
+// OpCodes for Responses
+pub const OP_OK: u8 = 0x80;
+pub const OP_NOT_FOUND: u8 = 0x81;
+pub const OP_ERR_INVALID_FRAME: u8 = 0x82;
+pub const OP_ERR_SERVER_ERROR: u8 = 0x83;
+
+pub const MAGIC_BYTES: [u8; 2] = [0x4D, 0x58]; // "MX" magic byte
+pub const MAX_PAYLOAD_LEN: u32 = 67_108_864; // 64 MB
+
+#[derive(Debug)]
+pub struct Header {
+    pub magic: [u8; 2],
+    pub op_code: u8,
+    pub flags: u8,
+    pub payload_len: u32,
+}
+
+impl Header {
+    pub fn new(op_code: u8, flags: u8, payload_len: u32) -> Self {
+        Self {
+            magic: MAGIC_BYTES,
+            op_code,
+            flags,
+            payload_len,
+        }
+    }
+
+    pub fn encode(&self) -> [u8; 8] {
+        let mut header = [0; 8];
+        header[0..2].copy_from_slice(&self.magic);
+        header[2] = self.op_code;
+        header[3] = self.flags;
+        header[4..8].copy_from_slice(&self.payload_len.to_be_bytes());
+        header
+    }
+
+    pub fn decode(buf: &[u8; 8]) -> murex_common::Result<Self> {
+        if buf[0..2] != MAGIC_BYTES {
+            return Err(murex_common::MurexError::InvalidFrame(
+                "Magic Bytes doesnt match".to_owned(),
+            ));
+        }
+
+        let op_code = buf[2];
+        let flags = buf[3];
+        let payload_len = u32::from_be_bytes([buf[4], buf[5], buf[6], buf[7]]);
+
+        if payload_len > MAX_PAYLOAD_LEN {
+            return Err(murex_common::MurexError::InvalidFrame(
+                "Payload Length exceeds maximum allowed size".to_owned(),
+            ));
+        }
+
+        Ok(Self {
+            magic: MAGIC_BYTES,
+            op_code,
+            flags,
+            payload_len,
+        })
+    }
+}
 
 #[derive(Debug)]
 pub enum Command {
@@ -7,6 +77,156 @@ pub enum Command {
     Set(Key, Value),
     Delete(Key),
     Help,
+}
+
+impl Command {
+    pub fn new(header: &Header, payload: &[u8]) -> murex_common::Result<Self> {
+        match header.op_code {
+            OP_PING => {
+                if payload.is_empty() {
+                    Ok(Command::Ping(None))
+                } else {
+                    Ok(Command::Ping(Some(Value::from(payload))))
+                }
+            }
+            OP_GET => {
+                let mut buf = payload;
+                if buf.len() < 2 {
+                    return Err(murex_common::MurexError::InvalidFrame(
+                        "GET payload missing key length prefix".into(),
+                    ));
+                }
+                let key_len = buf.get_u16() as usize;
+                if buf.len() < key_len {
+                    return Err(murex_common::MurexError::InvalidFrame(
+                        "GET payload missing key bytes".into(),
+                    ));
+                }
+                let key = buf[..key_len].to_vec();
+                Ok(Command::Get(key))
+            }
+            OP_SET => {
+                let mut buf = payload;
+                if buf.len() < 2 {
+                    return Err(murex_common::MurexError::InvalidFrame(
+                        "Payload too short".into(),
+                    ));
+                }
+
+                //Reads u16 and automatically moves cursor forward 2 bytes!
+                let key_len = buf.get_u16() as usize;
+                if buf.len() < key_len + 4 {
+                    return Err(murex_common::MurexError::InvalidFrame(
+                        "Payload missing key data".into(),
+                    ));
+                }
+
+                // Take key bytes and move cursor forward by key_len
+                let key = buf[..key_len].to_vec();
+                buf.advance(key_len);
+
+                //  Reads u32 and automatically moves cursor forward 4 bytes!
+                let val_len = buf.get_u32() as usize;
+                if buf.len() < val_len {
+                    return Err(murex_common::MurexError::InvalidFrame(
+                        "Payload missing value data".into(),
+                    ));
+                }
+
+                //  Take value bytes
+                let value = buf[..val_len].to_vec();
+                Ok(Command::Set(key, value))
+            }
+            OP_DELETE => {
+                let mut buf = payload;
+                if buf.len() < 2 {
+                    return Err(murex_common::MurexError::InvalidFrame(
+                        "DELETE payload missing key length prefix".into(),
+                    ));
+                }
+                let key_len = buf.get_u16() as usize;
+                if buf.len() < key_len {
+                    return Err(murex_common::MurexError::InvalidFrame(
+                        "DELETE payload missing key bytes".into(),
+                    ));
+                }
+                let key = buf[..key_len].to_vec();
+                Ok(Command::Delete(key))
+            }
+            OP_HELP => Ok(Command::Help),
+            _ => Err(murex_common::MurexError::InvalidFrame(
+                "Unknown OpCode".to_owned(),
+            )),
+        }
+    }
+
+    pub fn encode(&self) -> murex_common::Result<(Header, Vec<u8>)> {
+        match self {
+            Command::Ping(msg) => {
+                let payload = msg.clone().unwrap_or_default();
+                let header = Header::new(OP_PING, 0, payload.len() as u32);
+                Ok((header, payload))
+            }
+            Command::Get(key) => {
+                if key.len() > u16::MAX as usize {
+                    return Err(murex_common::MurexError::InvalidFrame(
+                        "Key is too big".to_owned(),
+                    ));
+                }
+                // allocate space (2 bytes) for key len
+                let mut payload = bytes::BytesMut::with_capacity(2 + key.len());
+                payload.put_u16(key.len() as u16);
+
+                // put the payload next
+                payload.put_slice(key);
+                let header = Header::new(OP_GET, 0, payload.len() as u32);
+                Ok((header, payload.to_vec()))
+            }
+            Command::Set(key, value) => {
+                if key.len() > u16::MAX as usize {
+                    return Err(murex_common::MurexError::InvalidFrame(
+                        "Key is too big".to_owned(),
+                    ));
+                }
+
+                // first allocate the space for the keylen& keybytes and valuelen and valuebytes
+                let mut payload = bytes::BytesMut::with_capacity(2 + key.len() + 4 + value.len());
+                payload.put_u16(key.len() as u16);
+
+                // put the key bytes next
+                payload.put_slice(key);
+
+                // next allocate the space for thevaluelen and valuebytes
+                payload.put_u32(value.len() as u32);
+
+                payload.put_slice(value);
+
+                let header = Header::new(OP_SET, 0, payload.len() as u32);
+                Ok((header, payload.to_vec()))
+            }
+            Command::Delete(key) => {
+                if key.len() > u16::MAX as usize {
+                    return Err(murex_common::MurexError::InvalidFrame(
+                        "Key size exceeds u16 limit".into(),
+                    ));
+                }
+
+                // add the space for the key_len and key_bytes
+                let mut payload = bytes::BytesMut::with_capacity(2 + key.len());
+
+                payload.put_u16(key.len() as u16);
+
+                payload.put_slice(key);
+
+                let header = Header::new(OP_DELETE, 0, payload.len() as u32);
+                Ok((header, payload.to_vec()))
+            }
+            Command::Help => {
+                let header = Header::new(OP_HELP, 0, 0);
+                Ok((header, Vec::new()))
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
