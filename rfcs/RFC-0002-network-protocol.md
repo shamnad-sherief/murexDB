@@ -107,6 +107,20 @@ pub enum Command {
 * **Max Frame Size:** Default maximum payload length is **64 MB** (`67,108,864` bytes). Any frame declaring a `Payload Length` greater than 64 MB will be rejected immediately with `ERR_INVALID_FRAME` to prevent Out-Of-Memory (OOM) denial-of-service attacks.
 * **Stream Buffer Alignment:** Sockets must read full 8-byte headers before allocating payload buffers.
 
+## Frame Validation
+
+The server MUST validate every incoming frame before processing it.
+
+Validation includes:
+
+- Magic bytes must match the protocol identifier.
+- Payload Length must not exceed the configured maximum frame size.
+- The payload must contain enough bytes for all declared fields.
+- Key and value lengths must not exceed the remaining payload.
+- Unknown opcodes must result in `ERR_INVALID_FRAME`.
+
+Malformed frames MUST NOT be executed.
+
 ---
 
 # 8. Related Documents
