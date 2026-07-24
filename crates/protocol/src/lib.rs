@@ -1,5 +1,3 @@
-use std::fmt::Error;
-
 use bytes::{Buf, BufMut};
 use murex_common::{Key, Value};
 
@@ -241,7 +239,7 @@ pub enum Response {
 }
 
 impl Response {
-    pub fn new(header: &Header, payload: &[u8]) -> Result<Self, murex_common::MurexError> {
+    pub fn decode(header: &Header, payload: &[u8]) -> Result<Self, murex_common::MurexError> {
         match header.op_code {
             OP_RESPONSE_OK => {
                 if payload.is_empty() {
@@ -271,6 +269,36 @@ impl Response {
             _ => Err(murex_common::MurexError::InvalidFrame(
                 "Unknown OpCode".to_owned(),
             )),
+        }
+    }
+
+    pub fn encode(&self) -> murex_common::Result<(Header, Vec<u8>)> {
+        match self {
+            Response::Ok(value) => {
+                if let Some(val) = value {
+                    let mut payload = bytes::BytesMut::with_capacity(4 + val.len());
+                    payload.put_u32(val.len() as u32);
+                    payload.put_slice(val);
+
+                    let header = Header::new(OP_RESPONSE_OK, 0, val.len() as u32);
+                    Ok((header, payload.to_vec()))
+                } else {
+                    let header = Header::new(OP_RESPONSE_OK, 0, 0);
+                    Ok((header, Vec::new()))
+                }
+            }
+            Response::NotFound => {
+                let header = Header::new(OP_RESPONSE_NOT_FOUND, 0, 0);
+                Ok((header, Vec::new()))
+            }
+            Response::Error(_) => {
+                let header = Header::new(OP_RESPONSE_ERR_SERVER_ERROR, 0, 0);
+                Ok((header, Vec::new()))
+            }
+            Response::Help(_) => {
+                let header = Header::new(OP_RESPONSE_HELP, 0, 0);
+                Ok((header, Vec::new()))
+            }
         }
     }
 }
