@@ -1,3 +1,5 @@
+use std::fmt::Error;
+
 use bytes::{Buf, BufMut};
 use murex_common::{Key, Value};
 
@@ -9,10 +11,11 @@ pub const OP_DELETE: u8 = 0x04;
 pub const OP_HELP: u8 = 0x05;
 
 // OpCodes for Responses
-pub const OP_OK: u8 = 0x80;
-pub const OP_NOT_FOUND: u8 = 0x81;
-pub const OP_ERR_INVALID_FRAME: u8 = 0x82;
-pub const OP_ERR_SERVER_ERROR: u8 = 0x83;
+pub const OP_RESPONSE_OK: u8 = 0x80;
+pub const OP_RESPONSE_NOT_FOUND: u8 = 0x81;
+pub const OP_RESPONSE_ERR_INVALID_FRAME: u8 = 0x82;
+pub const OP_RESPONSE_ERR_SERVER_ERROR: u8 = 0x83;
+pub const OP_RESPONSE_HELP: u8 = 0x84;
 
 pub const MAGIC_BYTES: [u8; 2] = [0x4D, 0x58]; // "MX" magic byte
 pub const MAX_PAYLOAD_LEN: u32 = 67_108_864; // 64 MB
@@ -235,4 +238,39 @@ pub enum Response {
     Error(String),
     NotFound,
     Help(String),
+}
+
+impl Response {
+    pub fn new(header: &Header, payload: &[u8]) -> Result<Self, murex_common::MurexError> {
+        match header.op_code {
+            OP_RESPONSE_OK => {
+                if payload.is_empty() {
+                    Ok(Response::Ok(None))
+                } else {
+                    let mut buf = payload;
+                    if buf.len() < 4 {
+                        return Err(murex_common::MurexError::InvalidFrame(
+                            "OK response payload too short".into(),
+                        ));
+                    }
+                    let val_len = buf.get_u32() as usize;
+                    if buf.len() < val_len {
+                        return Err(murex_common::MurexError::InvalidFrame(
+                            "OK response payload missing value bytes".into(),
+                        ));
+                    }
+                    let val = buf[..val_len].to_vec();
+                    Ok(Response::Ok(Some(val)))
+                }
+            }
+            OP_RESPONSE_ERR_INVALID_FRAME | OP_RESPONSE_ERR_SERVER_ERROR => Ok(Response::Error(
+                String::from_utf8_lossy(payload).to_string(),
+            )),
+            OP_RESPONSE_NOT_FOUND => Ok(Response::NotFound),
+            OP_RESPONSE_HELP => Ok(Response::Help(String::from_utf8_lossy(payload).to_string())),
+            _ => Err(murex_common::MurexError::InvalidFrame(
+                "Unknown OpCode".to_owned(),
+            )),
+        }
+    }
 }
