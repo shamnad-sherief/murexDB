@@ -5,3 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+murex-common = { path = "../common" }
+murex-protocol = { path = "../protocol" }
+tokio.workspace = true
+bytes.workspace = true

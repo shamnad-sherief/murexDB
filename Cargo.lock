@@ -79,6 +79,12 @@ dependencies = [
 [[package]]
 name = "murex-server"
 version = "0.1.0"
+dependencies = [
+ "bytes",
+ "murex-common",
+ "murex-protocol",
+ "tokio",
+]
 
 [[package]]
 name = "parking_lot"
