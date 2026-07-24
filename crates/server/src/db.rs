@@ -3,7 +3,7 @@ use std::{collections::HashMap, sync::Arc};
 use murex_common::{Key, Value};
 use tokio::sync::RwLock;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Database {
     db: Arc<RwLock<HashMap<Key, Value>>>,
 }
