@@ -281,8 +281,9 @@ impl Response {
                     payload.put_u32(val.len() as u32);
                     payload.put_slice(val);
 
-                    let header = Header::new(OP_RESPONSE_OK, 0, val.len() as u32);
-                    Ok((header, payload.to_vec()))
+                    let payload = payload.to_vec();
+                    let header = Header::new(OP_RESPONSE_OK, 0, payload.len() as u32);
+                    Ok((header, payload))
                 } else {
                     let header = Header::new(OP_RESPONSE_OK, 0, 0);
                     Ok((header, Vec::new()))
