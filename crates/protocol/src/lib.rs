@@ -1,5 +1,6 @@
 use bytes::{Buf, BufMut};
 use murex_common::{Key, Value};
+use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
 // OpCodes for commands
 pub const OP_PING: u8 = 0x01;
@@ -303,6 +304,69 @@ impl Response {
             }
         }
     }
+}
+
+// read command from a tokio AsyncReadExt
+pub async fn read_command<R: AsyncReadExt + Unpin>(
+    reader: &mut R,
+) -> murex_common::Result<Command> {
+    // allocate and read 8 bytes header
+    let mut header_buf = [0; 8];
+    reader.read_exact(&mut header_buf).await?;
+    let header = Header::decode(&header_buf)?;
+
+    // allocate and read payload based on the header
+    let mut payload = vec![0; header.payload_len as usize];
+    reader.read_exact(&mut payload).await?;
+    Command::decode(&header, &payload)
+}
+
+pub async fn write_command<W: AsyncWriteExt + Unpin>(
+    writer: &mut W,
+    cmd: &Command,
+) -> murex_common::Result<()> {
+    let (header, payload) = cmd.encode()?;
+    writer.write_all(&header.encode()).await?;
+
+    if !payload.is_empty() {
+        writer.write_all(&payload).await?;
+    }
+
+    writer.flush().await?;
+
+    Ok(())
+}
+
+pub async fn read_response<R: AsyncReadExt + Unpin>(
+    reader: &mut R,
+) -> murex_common::Result<Response> {
+    // allocate and read 8 bytes header
+    let mut header_buf = [0; 8];
+    reader.read_exact(&mut header_buf).await?;
+    let header = Header::decode(&header_buf)?;
+
+    // allocate and read payload based on the header
+    let mut payload = vec![0; header.payload_len as usize];
+    reader.read_exact(&mut payload).await?;
+
+    // decode response variant using header and payload
+    Response::decode(&header, &payload)
+}
+
+pub async fn write_response<W: AsyncWriteExt + Unpin>(
+    writer: &mut W,
+    rsp: &Response,
+) -> murex_common::Result<()> {
+    let (header, payload) = rsp.encode()?;
+    writer.write_all(&header.encode()).await?;
+
+    if !payload.is_empty() {
+        writer.write_all(&payload).await?;
+    }
+
+    writer.flush().await?;
+
+    Ok(())
 }
 
 #[cfg(test)]

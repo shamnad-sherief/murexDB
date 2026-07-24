@@ -7,3 +7,4 @@ license.workspace = true
 [dependencies]
 murex-common = { path = "../common" }
 bytes.workspace = true
+tokio.workspace = true
