@@ -18,7 +18,7 @@ pub const OP_RESPONSE_HELP: u8 = 0x84;
 pub const MAGIC_BYTES: [u8; 2] = [0x4D, 0x58]; // "MX" magic byte
 pub const MAX_PAYLOAD_LEN: u32 = 67_108_864; // 64 MB
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Header {
     pub magic: [u8; 2],
     pub op_code: u8,
@@ -71,7 +71,7 @@ impl Header {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Command {
     Ping(Option<Value>),
     Get(Key),
@@ -81,7 +81,7 @@ pub enum Command {
 }
 
 impl Command {
-    pub fn new(header: &Header, payload: &[u8]) -> murex_common::Result<Self> {
+    pub fn decode(header: &Header, payload: &[u8]) -> murex_common::Result<Self> {
         match header.op_code {
             OP_PING => {
                 if payload.is_empty() {
@@ -230,7 +230,7 @@ impl Command {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Response {
     Ok(Option<Value>),
     Error(String),
@@ -300,5 +300,56 @@ impl Response {
                 Ok((header, Vec::new()))
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_header_encode_decode() {
+        let header = Header::new(OP_SET, 0, 1024);
+        let bytes = header.encode();
+        let decoded = Header::decode(&bytes).unwrap();
+        assert_eq!(header, decoded)
+    }
+
+    #[test]
+    fn test_invalid_magic_bytes() {
+        let magic = [0x4E, 0x58];
+        let header = Header {
+            flags: 0,
+            magic,
+            op_code: OP_GET,
+            payload_len: 1024,
+        };
+
+        let bytes = header.encode();
+
+        let decoded = Header::decode(&bytes);
+        assert!(decoded.is_err())
+    }
+
+    #[test]
+    fn test_command_set_roundtrip() {
+        let cmd = Command::Set(b"user:1".to_vec(), b"Alice".to_vec());
+        let (header, payload) = cmd.encode().unwrap();
+        let decoded = Command::decode(&header, &payload).unwrap();
+        assert_eq!(cmd, decoded);
+    }
+    #[test]
+    fn test_command_get_roundtrip() {
+        let cmd = Command::Get(b"user:1".to_vec());
+        let (header, payload) = cmd.encode().unwrap();
+        let decoded = Command::decode(&header, &payload).unwrap();
+        assert_eq!(cmd, decoded);
+    }
+    #[test]
+    fn test_response_ok_roundtrip() {
+        let resp = Response::Ok(Some(b"Alice".to_vec()));
+        let (header, payload) = resp.encode().unwrap();
+        let decoded = Response::decode(&header, &payload).unwrap();
+        assert_eq!(resp, decoded);
     }
 }
