@@ -291,13 +291,15 @@ impl Response {
                 let header = Header::new(OP_RESPONSE_NOT_FOUND, 0, 0);
                 Ok((header, Vec::new()))
             }
-            Response::Error(_) => {
-                let header = Header::new(OP_RESPONSE_ERR_SERVER_ERROR, 0, 0);
-                Ok((header, Vec::new()))
+            Response::Error(err) => {
+                let payload = err.as_bytes().to_vec();
+                let header = Header::new(OP_RESPONSE_ERR_SERVER_ERROR, 0, payload.len() as u32);
+                Ok((header, payload))
             }
-            Response::Help(_) => {
-                let header = Header::new(OP_RESPONSE_HELP, 0, 0);
-                Ok((header, Vec::new()))
+            Response::Help(msg) => {
+                let payload = msg.as_bytes().to_vec();
+                let header = Header::new(OP_RESPONSE_HELP, 0, payload.len() as u32);
+                Ok((header, payload))
             }
         }
     }
