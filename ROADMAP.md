@@ -54,7 +54,7 @@ Establish the project foundation and engineering workflow.
 
 ---
 
-## Milestone 1 — In-Memory Database *(Current)*
+## Milestone 1 — In-Memory Database *(Completed)*
 
 ### Goal
 
@@ -78,7 +78,7 @@ Build the smallest usable database.
 
 ---
 
-## Milestone 2 — Persistence
+## Milestone 2 — Persistence *(Current)*
 
 ### Goal
 
