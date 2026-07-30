@@ -46,6 +46,8 @@ Establish the project foundation and engineering workflow.
 * [x] RFC-0002 — Network Protocol
 * [x] RFC-0003 — Project Architecture
 * [x] RFC-0004 — Concurrency Model
+* [x] RFC-0005 — Storage Persistence
+
 * [x] GitHub Actions
 * [x] Code Quality Configuration (`rustfmt`, Clippy)
 * [x] CHANGELOG
