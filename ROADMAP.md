@@ -62,29 +62,19 @@ Build the smallest usable database.
 
 ### Deliverables
 
-* Async Tokio TCP server
-* CLI client
-* Human-readable protocol
-* In-memory key-value storage
-* Commands:
+* [x] Async Tokio TCP server
+* [x] CLI client
+* [x] In-memory key-value storage
+* [x] Commands:
 
   * `SET`
   * `GET`
   * `DELETE`
   * `PING`
   * `HELP`
-* Multiple concurrent client connections
-* Graceful shutdown
+* [x] Multiple concurrent client connections
+* [x] Graceful shutdown
 
-### Out of Scope
-
-* Persistence
-* Write-Ahead Log
-* Transactions
-* Secondary indexes
-* Query language
-* Replication
-* AI memory features
 
 ---
 
