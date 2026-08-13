@@ -1,9 +1,6 @@
-mod db;
-mod handler;
+use murex_server::snapshot::load_snapshot;
+use murex_server::{handle_client, snapshot::save_snapshot};
 use std::{env, net::SocketAddr};
-
-pub use db::Database;
-pub use handler::handle_client;
 use tokio::net::TcpListener;
 
 #[tokio::main]
@@ -16,7 +13,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener = TcpListener::bind(addr).await?;
     println!("MurexDB Server listening on {}", addr);
 
-    let db = Database::new();
+    let db_path = env::var("MUREX_DB_PATH").unwrap_or_else(|_| "data.db".to_string());
+    let db = load_snapshot(&db_path).await?;
+
+    println!("Database state loaded from {}", db_path);
 
     tokio::select! {
         res = async {
@@ -42,7 +42,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         _ = tokio::signal::ctrl_c() => {
-            println!("Shutting down server...");
+            println!("Shutdown signal recieved. Svaing snapshot to {}", db_path);
+            if let Err(e) =
+            save_snapshot(&db, &db_path).await{
+                eprintln!("Failed to save snapshot: {}", e)
+
+            }else{
+                println!("Snapshot saved successfully!");
+            }
         },
     };
 

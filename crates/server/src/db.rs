@@ -29,6 +29,18 @@ impl Database {
         let mut guard = self.db.write().await;
         guard.remove(key).is_some()
     }
+
+    pub async fn entries(&self) -> Vec<(Key, Value)> {
+        let guard = self.db.read().await;
+
+        let mut result: Vec<(Key, Value)> = Vec::new();
+
+        for (key, val) in guard.iter() {
+            result.push((key.to_vec(), val.to_vec()));
+        }
+
+        result
+    }
 }
 
 #[cfg(test)]
