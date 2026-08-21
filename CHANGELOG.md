@@ -5,7 +5,20 @@ All notable changes to MurexDB will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.2.0] - 2026-08-21
+
+### Added
+- **Milestone 2 — Persistence & Binary Snapshot Engine:**
+  - **RFC-0005 Storage Specification:** Binary snapshot file format specification (`rfcs/RFC-0005-storage-persistence.md`).
+  - **Binary Snapshot Codec (`murex_server::snapshot`):**
+    - 10-byte File Header framing (`0x4D 0x58 0x44 0x42` `"MXDB"` magic bytes, 2-byte schema version `0x0001`, 4-byte entry count).
+    - Length-prefixed binary key-value record format (`u16 BE` key length, key bytes, `u32 BE` value length, value bytes).
+    - Atomic rename write strategy (`data.db.tmp` $\rightarrow$ `data.db` with `BufWriter` & `sync_all` `fsync` protection).
+    - Startup state recovery (`load_snapshot`) loading snapshots off disk into `Database` on server boot.
+    - Snapshot save & load roundtrip unit test suite.
+
 ## [v0.1.0] - 2026-07-25
+
 
 ### Added
 - **Milestone 1 — In-Memory Database Engine & CLI Client:**
