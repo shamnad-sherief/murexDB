@@ -87,10 +87,11 @@ cargo run -p murex-client
 
 MurexDB follows an incremental, RFC-driven development workflow:
 
-* **Milestone 0 — Foundation** *(Current)*: Cargo workspace, code quality standards, repository architecture.
-* **Milestone 1 — In-Memory Database**: Tokio async TCP server, CLI client, in-memory KV engine (`GET`, `SET`, `DELETE`, `PING`).
-* **Milestone 2 — Persistence**: Disk snapshotting, serialization, and recovery.
-* **Milestone 3 — Write-Ahead Log (WAL)**: Crash durability, log replay, append-only storage.
+* **Milestone 0 — Foundation** *(Completed)*: Cargo workspace, code quality standards, repository architecture.
+* **Milestone 1 — In-Memory Database** *(Completed)*: Tokio async TCP server, CLI client, in-memory KV engine (`GET`, `SET`, `DELETE`, `PING`).
+* **Milestone 2 — Persistence** *(Completed)*: Binary snapshot engine (`RFC-0005`), atomic rename, and startup recovery.
+* **Milestone 3 — Write-Ahead Log (WAL)** *(Current)*: Crash durability, log replay, append-only storage.
+
 * **Milestone 4 — Storage Engine Abstraction**: Modular `StorageEngine` trait interface.
 
 ---

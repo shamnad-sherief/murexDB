@@ -80,7 +80,7 @@ Build the smallest usable database.
 
 ---
 
-## Milestone 2 — Persistence *(Current)*
+## Milestone 2 — Persistence *(Completed)*
 
 ### Goal
 
@@ -88,13 +88,14 @@ Persist data across process restarts.
 
 ### Deliverables
 
-* Snapshot persistence
-* Binary serialization
-* Startup recovery
+* [x] Snapshot persistence
+* [x] Binary serialization (RFC-0005)
+* [x] Startup recovery
 
 ---
 
-## Milestone 3 — Write-Ahead Log (WAL)
+## Milestone 3 — Write-Ahead Log (WAL) *(Current)*
+
 
 ### Goal
 
