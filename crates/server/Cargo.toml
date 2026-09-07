@@ -9,3 +9,4 @@ murex-common = { path = "../common" }
 murex-protocol = { path = "../protocol" }
 tokio.workspace = true
 bytes.workspace = true
+crc32fast = "1.5.1"
