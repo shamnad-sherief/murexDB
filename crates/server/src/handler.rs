@@ -3,11 +3,16 @@ use murex_protocol::{
     Response::{self},
     read_command, write_response,
 };
-use tokio::net::TcpStream;
+use std::sync::Arc;
+use tokio::{net::TcpStream, sync::Mutex};
 
-use crate::db::Database;
+use crate::{db::Database, wal::WalWriter};
 
-pub async fn handle_client(mut stream: TcpStream, db: Database) -> murex_common::Result<()> {
+pub async fn handle_client(
+    mut stream: TcpStream,
+    db: Database,
+    wal_writer: Arc<Mutex<WalWriter>>,
+) -> murex_common::Result<()> {
     let (mut reader, mut writer) = stream.split();
 
     loop {
@@ -37,14 +42,34 @@ pub async fn handle_client(mut stream: TcpStream, db: Database) -> murex_common:
                 None => Response::NotFound,
             },
             Set(key, item) => {
+
+                // write it to WAL first
+               let mut wal_guard = wal_writer.lock().await;
+
+               if let Err(e) =  wal_guard.append_set(&key, &item){
+                let err_resp = Response::Error(format!("WAL write failed {}", e));
+                write_response(&mut writer, &err_resp).await?;
+                continue;
+               }
+
+               // only after successfull WAL, mutate the in memory db
                 db.set(key, item).await;
                 Response::Ok(None)
             }
             Delete(key) => {
-                if db.delete(&key).await {
-                    Response::Ok(None)
-                } else {
+
+                if db.get(&key).await.is_none(){
                     Response::NotFound
+                }else {
+                // write it to WAL first
+                let mut wal_guard = wal_writer.lock().await;
+                if let Err(e) = wal_guard.append_delete(&key){
+                     let err_resp = Response::Error(format!("WAL write failed {}", e));
+                     write_response(&mut writer, &err_resp).await?;
+                     continue;
+                }
+                db.delete(&key).await;
+                Response::Ok(None)
                 }
             }
             Help => Response::Help(

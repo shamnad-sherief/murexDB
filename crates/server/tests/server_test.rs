@@ -1,6 +1,11 @@
+use std::{env, sync::Arc};
+
 use murex_protocol::{Command, Response, read_response, write_command};
-use murex_server::{Database, handle_client};
-use tokio::net::{TcpListener, TcpStream};
+use murex_server::{Database, handle_client, wal::WalWriter};
+use tokio::{
+    net::{TcpListener, TcpStream},
+    sync::Mutex,
+};
 
 async fn setup_test_server() -> String {
     // Bind to port 0 to let OS pick an available free port
@@ -8,12 +13,21 @@ async fn setup_test_server() -> String {
     let addr = listener.local_addr().unwrap().to_string();
     let db = Database::new();
 
+    // temp dir for testing
+    let wal_path = env::temp_dir().join(format!("test_wal_{}.log", std::process::id()));
+
+    // remove old file for new fresh test
+    let _ = std::fs::remove_file(&wal_path);
+
+    let wal_writer = Arc::new(Mutex::new(WalWriter::open(wal_path).unwrap()));
+
     tokio::spawn(async move {
         loop {
             if let Ok((socket, _)) = listener.accept().await {
                 let db_clone = db.clone();
+                let wal_writer_clone = wal_writer.clone();
                 tokio::spawn(async move {
-                    let _ = handle_client(socket, db_clone).await;
+                    let _ = handle_client(socket, db_clone, wal_writer_clone).await;
                 });
             }
         }
