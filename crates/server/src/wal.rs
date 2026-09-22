@@ -7,12 +7,13 @@ use crate::Database;
 use bytes::BufMut;
 use murex_common::Result;
 
-pub const MAX_KEY_LEN: usize = 65_535 as usize; // 64KB
+pub const MAX_KEY_LEN: usize = 65_535; // 64KB
 pub const MAX_VAL_LEN: u32 = 67_108_864; // 64MB
 
 pub struct WalWriter {
     file: std::fs::File,
     pub next_lsn: u64,
+    #[allow(dead_code)]
     sync_mode: FsyncMode,
 }
 
@@ -133,7 +134,7 @@ impl WalWriter {
         record.put_u64(lsn);
         record.put_u8(0x02);
         record.put_u16(key.len() as u16);
-        record.put_u32(0 as u32);
+        record.put_u32(0);
 
         record.put_slice(key);
 
@@ -273,8 +274,148 @@ impl<R: std::io::Read> WalReader<R> {
     }
 }
 
+#[allow(dead_code, clippy::upper_case_acronyms)]
 enum FsyncMode {
     Full,
     WAL,
     None,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+
+    fn temp_wal_path(test_name: &str) -> std::path::PathBuf {
+        let path = std::env::temp_dir().join(format!(
+            "murex_test_{}_{}.wal",
+            test_name,
+            std::process::id()
+        ));
+        let _ = std::fs::remove_file(&path);
+        path
+    }
+
+    #[tokio::test]
+    async fn test_wal_append_and_replay_roundtrip() {
+        let path = temp_wal_path("roundtrip");
+        let mut writer = WalWriter::open(&path).unwrap();
+
+        let lsn0 = writer.append_set(b"user:1", b"Alice").unwrap();
+        assert_eq!(lsn0, 0);
+
+        let lsn1 = writer.append_set(b"user:2", b"Bob").unwrap();
+        assert_eq!(lsn1, 1);
+
+        let lsn2 = writer.append_delete(b"user:1").unwrap();
+        assert_eq!(lsn2, 2);
+
+        // Replay into a fresh DB
+        let file = std::fs::File::open(&path).unwrap();
+        let mut reader = WalReader::new(file).unwrap();
+        let db = Database::new();
+
+        let count = reader.replay_into(&db).await.unwrap();
+        assert_eq!(count, 3);
+        assert_eq!(reader.last_lsn, Some(2));
+
+        assert_eq!(db.get(b"user:1").await, None);
+        assert_eq!(db.get(b"user:2").await, Some(b"Bob".to_vec()));
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn test_wal_checkpoint_truncates_file() {
+        let path = temp_wal_path("checkpoint");
+        let mut writer = WalWriter::open(&path).unwrap();
+
+        writer.append_set(b"k1", b"v1").unwrap();
+        writer.append_set(b"k2", b"v2").unwrap();
+
+        let metadata_before = std::fs::metadata(&path).unwrap();
+        assert!(metadata_before.len() > 8);
+
+        // Checkpoint should truncate back to 8 bytes
+        let checkpoint_writer = WalWriter::checkpoint(&path).unwrap();
+        assert_eq!(checkpoint_writer.next_lsn, 0);
+
+        let metadata_after = std::fs::metadata(&path).unwrap();
+        assert_eq!(metadata_after.len(), 8);
+
+        // Replaying after checkpoint should yield 0 records
+        let file = std::fs::File::open(&path).unwrap();
+        let mut reader = WalReader::new(file).unwrap();
+        let db = Database::new();
+        let count = reader.replay_into(&db).await.unwrap();
+        assert_eq!(count, 0);
+        assert_eq!(reader.last_lsn, None);
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[tokio::test]
+    async fn test_wal_crc_corruption_detection() {
+        let path = temp_wal_path("corruption");
+        let mut writer = WalWriter::open(&path).unwrap();
+
+        writer
+            .append_set(b"important_key", b"important_val")
+            .unwrap();
+        drop(writer);
+
+        // Read the file, corrupt a byte in the payload, write back
+        let mut bytes = std::fs::read(&path).unwrap();
+        let last_idx = bytes.len() - 1;
+        bytes[last_idx] ^= 0xFF;
+        std::fs::write(&path, &bytes).unwrap();
+
+        let file = std::fs::File::open(&path).unwrap();
+        let mut reader = WalReader::new(file).unwrap();
+        let db = Database::new();
+
+        let res = reader.replay_into(&db).await;
+        assert!(res.is_err(), "Corrupted WAL record should fail CRC check");
+        match res.unwrap_err() {
+            murex_common::MurexError::InvalidFrame(msg) => {
+                assert!(msg.contains("CRC mismatch") || msg.contains("corrupted"));
+            }
+            other => panic!("Expected InvalidFrame error, got {:?}", other),
+        }
+
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn test_wal_invalid_magic_bytes() {
+        let invalid_header = b"BADW\x00\x01\x00\x00";
+        let cursor = Cursor::new(invalid_header);
+        let res = WalReader::new(cursor);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_wal_invalid_version() {
+        let invalid_version = b"MXWL\x00\x02\x00\x00";
+        let cursor = Cursor::new(invalid_version);
+        let res = WalReader::new(cursor);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_wal_bounds_validation() {
+        let path = temp_wal_path("bounds");
+        let mut writer = WalWriter::open(&path).unwrap();
+
+        // Empty key
+        assert!(writer.append_set(b"", b"value").is_err());
+        assert!(writer.append_delete(b"").is_err());
+
+        // Key too large (> 64KB)
+        let large_key = vec![b'k'; MAX_KEY_LEN + 1];
+        assert!(writer.append_set(&large_key, b"value").is_err());
+        assert!(writer.append_delete(&large_key).is_err());
+
+        let _ = std::fs::remove_file(&path);
+    }
 }
