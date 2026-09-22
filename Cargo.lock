@@ -21,6 +21,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9330f8b2ff13f34540b44e946ef35111825727b38d33286ef986142615121801"
 
 [[package]]
+name = "crc32fast"
+version = "1.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8498c871161e1742aaa9d52551b2d6ebdd4c3d45a3be423e3728f33b955be550"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "errno"
 version = "0.3.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -58,7 +67,7 @@ dependencies = [
 
 [[package]]
 name = "murex-client"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "bytes",
  "murex-common",
@@ -68,14 +77,14 @@ dependencies = [
 
 [[package]]
 name = "murex-common"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "murex-protocol"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "bytes",
  "murex-common",
@@ -84,9 +93,10 @@ dependencies = [
 
 [[package]]
 name = "murex-server"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "bytes",
+ "crc32fast",
  "murex-common",
  "murex-protocol",
  "tokio",

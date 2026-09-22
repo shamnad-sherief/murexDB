@@ -5,6 +5,28 @@ All notable changes to MurexDB will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0] - 2026-09-22
+
+### Added
+- **Milestone 3 — Write-Ahead Log (WAL) & Crash Recovery:**
+  - **RFC-0006 Specification:** Comprehensive WAL architecture, binary frame layout, LSN sequencing, and crash-recovery protocol (`rfcs/RFC-0006-write-ahead-log.md`).
+  - **Binary Write-Ahead Log Engine (`murex_server::wal`):**
+    - 8-byte WAL File Header (`0x4D 0x58 0x57 0x4C` `"MXWL"`, version `0x0001`, reserved bytes).
+    - Length-prefixed per-record binary frames with IEEE 802.3 CRC32 checksum verification.
+    - Monotonically increasing 64-bit Log Sequence Numbers (LSN).
+    - In-place checksum verification using streaming `crc32fast::Hasher`.
+    - Key bounds (`MAX_KEY_LEN = 65,535`) and value bounds (`MAX_VAL_LEN = 67,108,864`) validation.
+  - **Durability Invariant in Request Pipeline (`murex_server::handler`):**
+    - Mutations (`SET`, `DELETE`) are logged to WAL and synced before in-memory `Database` application.
+    - Thread-safe concurrent access via `Arc<tokio::sync::Mutex<WalWriter>>`.
+  - **Crash Recovery & Replay on Startup (`murex_server::main`):**
+    - Automatic inspection and sequential replay of `wal.log` via `WalReader::replay_into` upon server boot.
+    - Restoration of sequence counter (`next_lsn`) to `last_lsn + 1`.
+  - **Checkpoint-Based Truncation:**
+    - Truncation of `wal.log` back to 8-byte header on successful snapshot saving during graceful shutdown.
+  - **Test Suite:**
+    - Comprehensive unit tests covering roundtrip replay, file truncation on checkpoint, CRC corruption detection, invalid magic/version header validation, and bounds checking.
+
 ## [v0.2.0] - 2026-08-21
 
 ### Added

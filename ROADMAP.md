@@ -47,7 +47,6 @@ Establish the project foundation and engineering workflow.
 * [x] RFC-0003 — Project Architecture
 * [x] RFC-0004 — Concurrency Model
 * [x] RFC-0005 — Storage Persistence
-
 * [x] GitHub Actions
 * [x] Code Quality Configuration (`rustfmt`, Clippy)
 * [x] CHANGELOG
@@ -94,7 +93,7 @@ Persist data across process restarts.
 
 ---
 
-## Milestone 3 — Write-Ahead Log (WAL) *(Current)*
+## Milestone 3 — Write-Ahead Log (WAL) *(Completed)*
 
 
 ### Goal
@@ -103,13 +102,15 @@ Protect data against unexpected crashes.
 
 ### Deliverables
 
-* Append-only WAL
-* Log replay
-* Crash recovery
+* [x] RFC-0006 — Write-Ahead Log (WAL) & Crash Recovery
+* [x] Append-only WAL (`wal.log` binary format with CRC32 checksums)
+* [x] Atomic mutation logging before in-memory state application
+* [x] Log replay & crash recovery on startup
+* [x] Checkpoint-based WAL truncation on snapshot save
 
 ---
 
-## Milestone 4 — Storage Engine
+## Milestone 4 — Storage Engine *(Current)*
 
 ### Goal
 
