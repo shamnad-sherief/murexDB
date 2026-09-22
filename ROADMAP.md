@@ -93,7 +93,7 @@ Persist data across process restarts.
 
 ---
 
-## Milestone 3 — Write-Ahead Log (WAL) *(Current)*
+## Milestone 3 — Write-Ahead Log (WAL) *(Completed)*
 
 
 ### Goal
@@ -102,15 +102,15 @@ Protect data against unexpected crashes.
 
 ### Deliverables
 
-* [ ] RFC-0006 — Write-Ahead Log (WAL) & Crash Recovery
-* [ ] Append-only WAL (`wal.log` binary format with CRC32 checksums)
-* [ ] Atomic mutation logging before in-memory state application
-* [ ] Log replay & crash recovery on startup
-* [ ] Checkpoint-based WAL truncation on snapshot save
+* [x] RFC-0006 — Write-Ahead Log (WAL) & Crash Recovery
+* [x] Append-only WAL (`wal.log` binary format with CRC32 checksums)
+* [x] Atomic mutation logging before in-memory state application
+* [x] Log replay & crash recovery on startup
+* [x] Checkpoint-based WAL truncation on snapshot save
 
 ---
 
-## Milestone 4 — Storage Engine
+## Milestone 4 — Storage Engine *(Current)*
 
 ### Goal
 

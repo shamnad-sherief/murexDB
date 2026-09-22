@@ -67,7 +67,7 @@ dependencies = [
 
 [[package]]
 name = "murex-client"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "bytes",
  "murex-common",
@@ -77,14 +77,14 @@ dependencies = [
 
 [[package]]
 name = "murex-common"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "murex-protocol"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "bytes",
  "murex-common",
@@ -93,7 +93,7 @@ dependencies = [
 
 [[package]]
 name = "murex-server"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "bytes",
  "crc32fast",

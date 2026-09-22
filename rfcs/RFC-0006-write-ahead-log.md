@@ -1,6 +1,6 @@
 # RFC-0006: Write-Ahead Log (WAL) & Crash Recovery
 
-* **Status:** Proposed
+* **Status:** Accepted
 * **Created:** 2026-09-03
 * **Category:** Storage & Persistence
 * **Target Milestone:** Milestone 3 (v0.3.0)
