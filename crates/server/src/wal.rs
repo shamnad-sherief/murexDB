@@ -235,7 +235,12 @@ impl<R: std::io::Read> WalReader<R> {
 
             if val_len > 0 {
                 val_buff = vec![0u8; val_len as usize];
-                reader.read_exact(&mut val_buff)?;
+                if let Err(e) = reader.read_exact(&mut val_buff) {
+                    if e.kind() == std::io::ErrorKind::UnexpectedEof {
+                        break;
+                    }
+                    return Err(e.into());
+                }
             }
 
             let mut hasher = crc32fast::Hasher::new();
@@ -284,16 +289,51 @@ enum FsyncMode {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Cursor;
+    use std::{fs::OpenOptions, io::Cursor};
 
+    // this function just creates a path. Not a file in the file system
     fn temp_wal_path(test_name: &str) -> std::path::PathBuf {
         let path = std::env::temp_dir().join(format!(
             "murex_test_{}_{}.wal",
             test_name,
             std::process::id()
         ));
+        // if the path exists and if so remove it.
         let _ = std::fs::remove_file(&path);
         path
+    }
+
+    #[test]
+    fn test_wal_invalid_magic_bytes() {
+        let invalid_header = b"BADW\x00\x01\x00\x00";
+        let cursor = Cursor::new(invalid_header);
+        let res = WalReader::new(cursor);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_wal_invalid_version() {
+        let invalid_version = b"MXWL\x00\x02\x00\x00";
+        let cursor = Cursor::new(invalid_version);
+        let res = WalReader::new(cursor);
+        assert!(res.is_err());
+    }
+
+    #[test]
+    fn test_wal_bounds_validation() {
+        let path = temp_wal_path("bounds");
+        let mut writer = WalWriter::open(&path).unwrap();
+
+        // Empty key
+        assert!(writer.append_set(b"", b"value").is_err());
+        assert!(writer.append_delete(b"").is_err());
+
+        // Key too large (> 64KB)
+        let large_key = vec![b'k'; MAX_KEY_LEN + 1];
+        assert!(writer.append_set(&large_key, b"value").is_err());
+        assert!(writer.append_delete(&large_key).is_err());
+
+        let _ = std::fs::remove_file(&path);
     }
 
     #[tokio::test]
@@ -386,35 +426,35 @@ mod tests {
         let _ = std::fs::remove_file(&path);
     }
 
-    #[test]
-    fn test_wal_invalid_magic_bytes() {
-        let invalid_header = b"BADW\x00\x01\x00\x00";
-        let cursor = Cursor::new(invalid_header);
-        let res = WalReader::new(cursor);
-        assert!(res.is_err());
-    }
-
-    #[test]
-    fn test_wal_invalid_version() {
-        let invalid_version = b"MXWL\x00\x02\x00\x00";
-        let cursor = Cursor::new(invalid_version);
-        let res = WalReader::new(cursor);
-        assert!(res.is_err());
-    }
-
-    #[test]
-    fn test_wal_bounds_validation() {
-        let path = temp_wal_path("bounds");
+    #[tokio::test]
+    async fn test_wal_incomplete_record_recovery() {
+        let path = temp_wal_path("crash_recovery");
         let mut writer = WalWriter::open(&path).unwrap();
 
-        // Empty key
-        assert!(writer.append_set(b"", b"value").is_err());
-        assert!(writer.append_delete(b"").is_err());
+        let lsn0 = writer.append_set(b"a", b"Alice").unwrap();
+        assert_eq!(lsn0, 0);
 
-        // Key too large (> 64KB)
-        let large_key = vec![b'k'; MAX_KEY_LEN + 1];
-        assert!(writer.append_set(&large_key, b"value").is_err());
-        assert!(writer.append_delete(&large_key).is_err());
+        let lsn1 = writer.append_set(b"b", b"Bob").unwrap();
+        assert_eq!(lsn1, 1);
+
+        drop(writer);
+
+        let file_length = std::fs::metadata(&path).unwrap().len();
+
+        let _ = OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_len(file_length - 3)
+            .unwrap();
+
+        // Replay into a fresh DB
+        let file = std::fs::File::open(&path).unwrap();
+        let mut reader = WalReader::new(file).unwrap();
+        let db = Database::new();
+
+        let count = reader.replay_into(&db).await.unwrap();
+        assert_eq!(count, 1);
 
         let _ = std::fs::remove_file(&path);
     }
