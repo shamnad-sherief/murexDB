@@ -235,7 +235,7 @@ impl<R: std::io::Read> WalReader<R> {
 
             if val_len > 0 {
                 val_buff = vec![0u8; val_len as usize];
-                if let Err(e) = reader.read_exact(&mut val_buff){
+                if let Err(e) = reader.read_exact(&mut val_buff) {
                     if e.kind() == std::io::ErrorKind::UnexpectedEof {
                         break;
                     }
@@ -302,7 +302,6 @@ mod tests {
         let _ = std::fs::remove_file(&path);
         path
     }
-
 
     #[test]
     fn test_wal_invalid_magic_bytes() {
@@ -442,10 +441,13 @@ mod tests {
 
         let file_length = std::fs::metadata(&path).unwrap().len();
 
-       let _ = OpenOptions::new()
-        .write(true)
-        .open(&path).unwrap().set_len(file_length-3).unwrap();
-        
+        let _ = OpenOptions::new()
+            .write(true)
+            .open(&path)
+            .unwrap()
+            .set_len(file_length - 3)
+            .unwrap();
+
         // Replay into a fresh DB
         let file = std::fs::File::open(&path).unwrap();
         let mut reader = WalReader::new(file).unwrap();
