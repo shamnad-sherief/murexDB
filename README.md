@@ -1,6 +1,6 @@
 # MurexDB
 
-> **A modular database engine for AI agent memory, written in Rust.**
+> **An embedded, crash-safe storage engine for lossless AI agent context, written in Rust.**
 
 [![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -9,14 +9,32 @@
 
 ## Overview
 
-**MurexDB** is an open-source database written in Rust that is being built incrementally from first principles. Its long-term vision is to become the storage foundation for AI agents, supporting conversations, long-term memory, tool execution history, and context retrieval.
+**MurexDB** keeps everything an AI agent sees. It stores every message verbatim and never modifies it. It stores summaries as a graph whose edges always point back to the original messages, so any summary can be expanded back into its sources. It serves context to agent harnesses under a token budget.
 
-Rather than implementing AI-specific capabilities immediately, MurexDB first focuses on building a production-quality database engine. AI memory features are introduced only after the core storage engine is complete.
+It runs as a single binary or an embeddable Rust crate: no PostgreSQL, no vector database, and no LLM calls on the write path.
 
+The storage model follows the requirements of the LCM paper (*Lossless Context Management*, Voltropy, 2026): an immutable message store, transactional writes with referential integrity, and indexed full-text search.
 
-### Core Focus Areas
-* **Phase 1 — Database Engine:** In-memory key-value store, persistence, Write-Ahead Logging (WAL), modular storage engine traits, secondary indexes, query lexer/parser, ACID transactions, and observability.
-* **Phase 2 — AI Agent Infrastructure:** Structured conversation threads, agent session checkpoints, tool execution logs, TTL lifecycle policies, metadata indexing, semantic retrieval, and embedding storage.
+> **Status:** pre-MVP. The core engine (TCP server, snapshots, write-ahead log, crash recovery) is done. The context store is being built now. See [ROADMAP.md](ROADMAP.md).
+
+### Planned API
+
+| Operation | What it does |
+|---|---|
+| `append` | Store a message in a session, verbatim and immutable |
+| `compact` | Atomically store a summary node and its provenance edges |
+| `expand` | Return the messages or summaries a summary was built from |
+| `grep` | Regex search over the full history, grouped by covering summary |
+| `context` | Recent messages plus summaries that fit a token budget |
+| `describe` | Metadata for any message, summary or file reference |
+
+### Who it is for
+
+People building agent harnesses (Claude Code, OpenCode, Codex CLI, Goose, custom agents) who need long sessions without losing history, and teams that need an auditable record of what an agent saw.
+
+### What it is not
+
+MurexDB does not summarize text (the harness does), is not a general-purpose or SQL database, and does not do LLM-based memory extraction like mem0 or cortex-mem.
 
 ---
 
@@ -83,16 +101,23 @@ cargo run -p murex-client
 
 ---
 
-## Roadmap & Engineering Principles
+## Roadmap
 
-MurexDB follows an incremental, RFC-driven development workflow:
+MurexDB follows an incremental, RFC-driven workflow. Full details are in [ROADMAP.md](ROADMAP.md).
 
-* **Milestone 0 — Foundation** *(Completed)*: Cargo workspace, code quality standards, repository architecture.
-* **Milestone 1 — In-Memory Database** *(Completed)*: Tokio async TCP server, CLI client, in-memory KV engine (`GET`, `SET`, `DELETE`, `PING`).
-* **Milestone 2 — Persistence** *(Completed)*: Binary snapshot engine (`RFC-0005`), atomic rename, and startup recovery.
-* **Milestone 3 — Write-Ahead Log (WAL)** *(Current)*: Crash durability, log replay, append-only storage.
+**Phase 1 — Core Engine** *(Completed)*
+* **M0 Foundation:** Cargo workspace, CI, code quality standards, RFC process.
+* **M1 In-Memory Database:** Tokio async TCP server, CLI client, in-memory key-value store.
+* **M2 Persistence:** binary snapshots (RFC-0005), atomic rename, startup recovery.
+* **M3 Write-Ahead Log:** CRC32-checked append-only log (RFC-0006), replay, crash recovery.
 
-* **Milestone 4 — Storage Engine Abstraction**: Modular `StorageEngine` trait interface.
+**Phase 2 — Context Store MVP**
+* **M4 Context Data Model** *(Current)*: RFC-0007, append-only message segments, SQLite + FTS5 baseline.
+* **M5 Transactions & Summary DAG:** multi-record WAL transactions, `compact`, `expand`.
+* **M6 Retrieval:** `grep`, `context`, `describe`.
+* **M7 Harness Integration:** MCP server and one real harness integration.
+* **M8 Proving It Works:** crash-test harness, benchmarks against SQLite.
+* **M9 Public MVP (v0.9.0).**
 
 ---
 
