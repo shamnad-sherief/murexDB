@@ -46,7 +46,7 @@ Milestone 1 uses `Arc<RwLock<HashMap>>` as the initial concurrency strategy beca
 
 * **Read-Heavy Optimization:** Database workloads are typically read-heavy (`GET` requests outnumber `SET`/`DELETE`). An `RwLock` allows **multiple concurrent readers** to access the `HashMap` simultaneously without blocking each other.
 * **Direct Access without Channel Overhead:** Passing messages over `mpsc` channels to a single actor task serializes all read/write operations through one thread bottleneck. `Arc<RwLock<HashMap>>` leverages all CPU cores directly.
-* **Evolution:** Future milestones may replace this implementation as the storage engine evolves (e.g., WAL in Milestone 3, `StorageEngine` trait in Milestone 4).
+* **Evolution:** Future milestones may replace this implementation as the storage engine evolves (e.g., WAL in Milestone 3, the context store in Milestones 4–6).
 
 ---
 
@@ -60,7 +60,7 @@ pub struct Database {
 }
 ```
 
-This abstraction ensures that future milestones (Write-Ahead Logging in Milestone 3, StorageEngine traits in Milestone 4, and Secondary Indexes in Milestone 5) can replace the internal storage engine implementation without altering client connection handlers.
+This abstraction ensures that future milestones (Write-Ahead Logging in Milestone 3, and the context store with its message segments and summary DAG in Milestones 4–6) can replace the internal storage engine implementation without altering client connection handlers.
 
 ---
 

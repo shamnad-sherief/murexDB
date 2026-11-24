@@ -5,6 +5,17 @@ All notable changes to MurexDB will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- **Project direction:** MurexDB is now focused on being an embedded, crash-safe storage engine for lossless AI agent context, following the storage model of the LCM paper (immutable message store, summary DAG with provenance, full-text search).
+  - Rewrote `ROADMAP.md`: Phase 2 is now the Context Store MVP (Milestones 4–9). Dropped the StorageEngine trait, general secondary indexes, query language, general ACID transactions and the v1.x AI memory series.
+  - Amended `RFC-0001` (Project Vision) with the new goals, non-goals and a revision history.
+  - Updated `README.md`, `CONTRIBUTING.md`, and `RFC-0004` milestone references.
+
+### Fixed
+- WAL reader handles unexpected EOF during a read, with a test for recovering from an incomplete record.
+
 ## [v0.3.0] - 2026-09-22
 
 ### Added
